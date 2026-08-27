@@ -16,6 +16,9 @@ openssl rand -hex 32
 
 将生成的随机值分别填入 `MYSQL_ROOT_PASSWORD`、`MYSQL_PASSWORD` 和 `AUTH_CODE`。然后构建并启动：
 
+如果服务器无法访问官方 npm registry，可在服务器的 `.env.production` 中将
+`NPM_REGISTRY` 设置为可访问的 npm 镜像；它只影响构建阶段的 pnpm 安装。
+
 ```sh
 docker compose --env-file .env.production \
   -f docker-compose.production.yml up -d --build

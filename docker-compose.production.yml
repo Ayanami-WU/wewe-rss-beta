@@ -26,6 +26,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: app
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
     image: wewe-rss-beta:local
     restart: unless-stopped
     depends_on:
