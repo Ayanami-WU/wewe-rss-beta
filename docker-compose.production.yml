@@ -1,0 +1,51 @@
+services:
+  db:
+    image: mysql:8.3.0
+    command: --mysql-native-password=ON
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      MYSQL_DATABASE: wewe-rss
+      MYSQL_USER: wewe
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      TZ: Asia/Shanghai
+    volumes:
+      - wewe-rss-beta-db:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'mysql -h localhost -u root -p"$${MYSQL_ROOT_PASSWORD}" -e ''SELECT 1'' --silent --skip-column-names >/dev/null',
+        ]
+      timeout: 10s
+      interval: 10s
+      retries: 12
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: app
+    image: wewe-rss-beta:local
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '${APP_BIND_HOST:-127.0.0.1}:${APP_PORT:-4000}:4000'
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      DATABASE_URL: 'mysql://wewe:${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}@db:3306/wewe-rss?schema=public&connect_timeout=30&pool_timeout=30&socket_timeout=30'
+      DATABASE_TYPE: mysql
+      AUTH_CODE: ${AUTH_CODE:?AUTH_CODE is required}
+      SERVER_ORIGIN_URL: ${SERVER_ORIGIN_URL:-https://rss.tuotuzju.com}
+      PLATFORM_URL: ${PLATFORM_URL:-https://weread.111965.xyz}
+      FEED_MODE: ${FEED_MODE:-fulltext}
+      MAX_REQUEST_PER_MINUTE: ${MAX_REQUEST_PER_MINUTE:-60}
+      CRON_EXPRESSION: ${CRON_EXPRESSION:-35 5,17 * * *}
+      UPDATE_DELAY_TIME: ${UPDATE_DELAY_TIME:-60}
+      ENABLE_CLEAN_HTML: ${ENABLE_CLEAN_HTML:-false}
+
+volumes:
+  wewe-rss-beta-db:

@@ -186,3 +186,7 @@ pnpm run start:server
 ## 📄 License
 
 [MIT](https://raw.githubusercontent.com/cooderl/wewe-rss/main/LICENSE) @cooderl
+
+## 拓浙 beta 域名部署
+
+`rss.tuotuzju.com` 的生产 Compose、环境变量模板和 Caddy 站点片段见 [`deploy/README.md`](./deploy/README.md)。生产环境请使用独立的 `.env.production`，不要提交数据库、WeRead 令牌或授权码。

@@ -2,7 +2,10 @@ FROM node:20.16.0-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
-RUN npm i -g pnpm
+# The repository uses lockfile v6, which is compatible with pnpm 8.
+# Do not install the moving latest release: pnpm 11 requires newer Node
+# built-ins than the Node 20 base image provides.
+RUN npm i -g pnpm@8.15.9
 
 FROM base AS build
 COPY . /usr/src/app
