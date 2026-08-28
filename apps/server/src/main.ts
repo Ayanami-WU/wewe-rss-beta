@@ -25,11 +25,17 @@ async function bootstrap() {
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ extended: true, limit: '10mb' }));
 
-  app.useStaticAssets(join(__dirname, '..', 'client', 'assets'), {
-    prefix: '/dash/assets/',
-  });
-  app.setBaseViewsDir(join(__dirname, '..', 'client'));
-  app.setViewEngine('hbs');
+  const dashboardEnabled =
+    configService.get<ConfigurationType['dashboard']>('dashboard')?.enabled ??
+    true;
+
+  if (dashboardEnabled) {
+    app.useStaticAssets(join(__dirname, '..', 'client', 'assets'), {
+      prefix: '/dash/assets/',
+    });
+    app.setBaseViewsDir(join(__dirname, '..', 'client'));
+    app.setViewEngine('hbs');
+  }
 
   if (isProd) {
     app.enable('trust proxy');

@@ -18,8 +18,10 @@ const configuration = () => {
   const updateDelayTime = parseInt(`${process.env.UPDATE_DELAY_TIME} || 60`);
 
   const enableCleanHtml = process.env.ENABLE_CLEAN_HTML === 'true';
+  const dashboardEnabled = process.env.DASHBOARD_ENABLED !== 'false';
   return {
     server: { isProd, port, host },
+    dashboard: { enabled: dashboardEnabled },
     throttler: { maxRequestPerMinute },
     auth: { code: authCode },
     platform: { url: platformUrl },

@@ -15,7 +15,9 @@ WORKDIR /usr/src/app
 
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
-RUN pnpm run -r build
+# Production runs as a headless backend. The apps/web source remains in the
+# repository for upstream sync and recovery, but its Dashboard is not shipped.
+RUN pnpm --filter server build
 
 RUN pnpm deploy --filter=server --prod /app
 RUN pnpm deploy --filter=server --prod /app-sqlite
@@ -36,6 +38,7 @@ EXPOSE 4000
 
 ENV NODE_ENV=production
 ENV HOST="0.0.0.0"
+ENV DASHBOARD_ENABLED="false"
 ENV SERVER_ORIGIN_URL=""
 ENV MAX_REQUEST_PER_MINUTE=60
 ENV AUTH_CODE=""
@@ -56,6 +59,7 @@ EXPOSE 4000
 
 ENV NODE_ENV=production
 ENV HOST="0.0.0.0"
+ENV DASHBOARD_ENABLED="false"
 ENV SERVER_ORIGIN_URL=""
 ENV MAX_REQUEST_PER_MINUTE=60
 ENV AUTH_CODE=""

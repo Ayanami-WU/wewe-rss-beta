@@ -1,4 +1,10 @@
-import { Controller, Get, Response, Render } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Response,
+  Render,
+} from '@nestjs/common';
 import { AppService } from './app.service';
 import { ConfigService } from '@nestjs/config';
 import { ConfigurationType } from './configuration';
@@ -12,7 +18,7 @@ export class AppController {
   ) {}
 
   @Get()
-  getHello(): string {
+  getHello(): object {
     return this.appService.getHello();
   }
 
@@ -33,6 +39,13 @@ export class AppController {
   @Get('/dash*')
   @Render('index.hbs')
   dashRender() {
+    const dashboardEnabled =
+      this.configService.get<ConfigurationType['dashboard']>('dashboard')
+        ?.enabled ?? true;
+    if (!dashboardEnabled) {
+      throw new NotFoundException('WeWe RSS Dashboard is disabled');
+    }
+
     const { originUrl: weweRssServerOriginUrl } =
       this.configService.get<ConfigurationType['feed']>('feed')!;
     const { code } = this.configService.get<ConfigurationType['auth']>('auth')!;

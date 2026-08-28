@@ -25,6 +25,7 @@ docker compose --env-file .env.production \
 docker compose --env-file .env.production \
   -f docker-compose.production.yml ps
 curl --fail http://127.0.0.1:4000/
+curl --fail http://127.0.0.1:4000/feeds/all.atom
 ```
 
 将 `deploy/Caddyfile.rss.tuotuzju.com` 的站点块合并到现有 Caddyfile，确认配置并重载：
@@ -32,14 +33,16 @@ curl --fail http://127.0.0.1:4000/
 ```sh
 caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl reload caddy
-curl --fail --retry 5 --retry-delay 2 https://rss.tuotuzju.com/dash/
+curl --fail --retry 5 --retry-delay 2 https://rss.tuotuzju.com/
+curl --fail --retry 5 --retry-delay 2 https://rss.tuotuzju.com/feeds/all.atom
+test "$(curl --silent --output /dev/null --write-out '%{http_code}' https://rss.tuotuzju.com/dash/)" = 404
 ```
 
-首次进入 Dashboard 时使用 `.env.production` 中的 `AUTH_CODE`。WeRead 账号令牌由 WeWe RSS 保存到数据库，数据库卷和 `.env.production` 都不能提交或公开。
+生产部署为 headless backend，不提供 Dashboard；微信读书账号、订阅源和文章管理统一通过 ZJU_Platform 管理后台完成。WeRead 账号令牌由 WeWe RSS 保存到数据库，数据库卷和 `.env.production` 都不能提交或公开。
 
 ## 回滚与维护
 
 - 回滚前保留当前镜像和数据库卷；不要删除 `wewe-rss-beta-db`；
 - 生产升级前先执行 MySQL 备份；
 - `PLATFORM_URL` 仍然是外部微信读书适配服务，当前 beta 部署不改变这一依赖；
-- Caddy 的 HTTPS 必须以真实证书和 `curl https://rss.tuotuzju.com/dash/` 验证为准。
+- Caddy 的 HTTPS 必须以真实证书、根路径、feed API 和 `/dash/` 返回 404 验证为准；回滚时只移除 `/dash` 拒绝规则并恢复旧镜像。
