@@ -6,6 +6,7 @@
 更优雅的微信公众号订阅方式。
 
 ![主界面](https://raw.githubusercontent.com/cooderl/wewe-rss/main/assets/preview1.png)
+
 </div>
 
 ## ✨ 功能
@@ -21,6 +22,7 @@
 ### 高级功能
 
 - **标题过滤**：支持通过`/feeds/all.(json|rss|atom)`接口和`/feeds/:feed`对标题进行过滤
+
   ```
   {{ORIGIN_URL}}/feeds/all.atom?title_include=张三
   {{ORIGIN_URL}}/feeds/MP_WXS_123.json?limit=30&title_include=张三|李四|王五&title_exclude=张三丰|赵六
@@ -43,16 +45,20 @@
 
 参考 [docker-compose.yml](https://github.com/cooderl/wewe-rss/blob/main/docker-compose.yml) 和 [docker-compose.sqlite.yml](https://github.com/cooderl/wewe-rss/blob/main/docker-compose.sqlite.yml)
 
+`rss.tuotuzju.com` 的生产部署使用 headless backend 模式：生产镜像只构建 `apps/server`，保留 `/feeds/*` 和受保护的 `/trpc/*` API，不提供 `/dash` Dashboard；`apps/web` 源码仍保留在仓库中用于上游同步和恢复。
+
 ### Docker 命令启动
 
 #### MySQL (推荐)
 
 1. 创建docker网络
+
    ```sh
    docker network create wewe-rss
    ```
 
 2. 启动 MySQL 数据库
+
    ```sh
    docker run -d \
      --name db \
@@ -125,6 +131,7 @@ pnpm run start:server
 | `UPDATE_DELAY_TIME`      | 连续更新延迟时间，减少被关小黑屋                                        | `60s`                       |
 | `ENABLE_CLEAN_HTML`      | 是否开启正文html清理                                                    | `false`                     |
 | `PLATFORM_URL`           | 基础服务URL                                                             | `https://weread.111965.xyz` |
+| `DASHBOARD_ENABLED`      | 是否提供 Dashboard；生产 headless 部署必须为 `false`                    | `true`                      |
 
 > **注意**: 国内DNS解析问题可使用 `https://weread.965111.xyz` 加速访问
 
@@ -134,14 +141,13 @@ pnpm run start:server
 
 ## 📱 使用方式
 
-1. 进入账号管理，点击添加账号，微信扫码登录微信读书账号。
-  
+1. 使用集成方提供的管理后台，点击添加账号，微信扫码登录微信读书账号。
+
    **注意不要勾选24小时后自动退出**
-   
+
    <img width="400" src="./assets/preview2.png"/>
 
-
-2. 进入公众号源，点击添加，通过提交微信公众号分享链接，订阅微信公众号。
+2. 在管理后台进入 RSS 管理，提交微信公众号分享链接，订阅微信公众号。
    **添加频率过高容易被封控，等24小时解封**
 
    <img width="400" src="./assets/preview3.png"/>
@@ -162,9 +168,10 @@ pnpm run start:server
    cp ./apps/web/.env.local.example ./apps/web/.env
    cp ./apps/server/.env.local.example ./apps/server/.env
    ```
-3. 执行 `pnpm install && pnpm run build:web && pnpm dev` 
-   
+3. 执行 `pnpm install && pnpm run build:web && pnpm dev`
+
    ⚠️ **注意：此命令仅用于本地开发，不要用于部署！**
+
 4. 前端访问 `http://localhost:5173`，后端访问 `http://localhost:4000`
 
 ## ⚠️ 风险声明
