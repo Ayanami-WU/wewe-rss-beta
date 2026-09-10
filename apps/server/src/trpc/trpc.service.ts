@@ -12,11 +12,6 @@ import utc from 'dayjs/plugin/utc';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-/**
- * 读书账号每日小黑屋
- */
-const blockedAccountsMap = new Map<string, string[]>();
-
 @Injectable()
 export class TrpcService {
   trpc = initTRPC.create();
@@ -32,6 +27,8 @@ export class TrpcService {
   mergeRouters = this.trpc.mergeRouters;
   request: AxiosInstance;
   updateDelayTime = 60;
+  private readonly blockedAccountsMap = new Map<string, string[]>();
+  private lastAccountId: string | undefined;
 
   private readonly logger = new Logger(this.constructor.name);
 
@@ -53,31 +50,22 @@ export class TrpcService {
         return response;
       },
       async (error) => {
-        this.logger.log('error: ', error);
         const errMsg = error.response?.data?.message || '';
 
-        const id = (error.config.headers as any).xid;
-        if (errMsg.includes('WeReadError401')) {
+        const id = error.config?.headers?.xid;
+        if (id && errMsg.includes('WeReadError401')) {
           // 账号失效
           await this.prismaService.account.update({
             where: { id },
             data: { status: statusMap.INVALID },
           });
           this.logger.error(`账号（${id}）登录失效，已禁用`);
-        } else if (errMsg.includes('WeReadError429')) {
-          //TODO 处理请求频繁
-          this.logger.error(`账号（${id}）请求频繁，打入小黑屋`);
-        }
-
-        const today = this.getTodayDate();
-
-        const blockedAccounts = blockedAccountsMap.get(today);
-
-        if (Array.isArray(blockedAccounts)) {
-          if (id) {
-            blockedAccounts.push(id);
-          }
-          blockedAccountsMap.set(today, blockedAccounts);
+        } else if (id && errMsg.includes('WeReadError429')) {
+          const today = this.getTodayDate();
+          const blockedAccounts = this.getBlockedAccountIds();
+          if (!blockedAccounts.includes(id)) blockedAccounts.push(id);
+          this.blockedAccountsMap.set(today, blockedAccounts);
+          this.logger.error(`账号（${id}）请求频繁，暂停至次日`);
         } else if (errMsg.includes('WeReadError400')) {
           this.logger.error(`账号（${id}）处理请求参数出错`);
           this.logger.error('WeReadError400: ', errMsg);
@@ -95,10 +83,10 @@ export class TrpcService {
   removeBlockedAccount = (vid: string) => {
     const today = this.getTodayDate();
 
-    const blockedAccounts = blockedAccountsMap.get(today);
+    const blockedAccounts = this.blockedAccountsMap.get(today);
     if (Array.isArray(blockedAccounts)) {
       const newBlockedAccounts = blockedAccounts.filter((id) => id !== vid);
-      blockedAccountsMap.set(today, newBlockedAccounts);
+      this.blockedAccountsMap.set(today, newBlockedAccounts);
     }
   };
 
@@ -108,7 +96,10 @@ export class TrpcService {
 
   getBlockedAccountIds() {
     const today = this.getTodayDate();
-    const disabledAccounts = blockedAccountsMap.get(today) || [];
+    for (const date of this.blockedAccountsMap.keys()) {
+      if (date !== today) this.blockedAccountsMap.delete(date);
+    }
+    const disabledAccounts = this.blockedAccountsMap.get(today) || [];
     this.logger.debug('disabledAccounts: ', disabledAccounts);
     return disabledAccounts.filter(Boolean);
   }
@@ -122,14 +113,22 @@ export class TrpcService {
           id: { in: disabledAccounts },
         },
       },
-      take: 10,
+      orderBy: { id: 'asc' },
     });
 
-    if (!account || account.length === 0) {
+    const blockedIds = new Set(this.getBlockedAccountIds());
+    const available = account.filter(({ id }) => !blockedIds.has(id));
+    if (available.length === 0) {
       throw new Error('暂无可用读书账号!');
     }
 
-    return account[Math.floor(Math.random() * account.length)];
+    // Advance synchronously after the database read, including concurrent callers.
+    const next =
+      available.find(
+        ({ id }) => this.lastAccountId === undefined || id > this.lastAccountId,
+      ) || available[0];
+    this.lastAccountId = next.id;
+    return next;
   }
 
   async getMpArticles(mpId: string, page = 1, retryCount = 3) {
@@ -162,7 +161,9 @@ export class TrpcService {
         });
       return res;
     } catch (err) {
-      this.logger.error(`retry(${4 - retryCount}) getMpArticles  error: `, err);
+      this.logger.error(
+        `getMpArticles failed; retries remaining: ${retryCount}`,
+      );
       if (retryCount > 0) {
         return this.getMpArticles(mpId, page, retryCount - 1);
       } else {
