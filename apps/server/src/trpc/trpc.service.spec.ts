@@ -12,7 +12,10 @@ describe('WeRead account balancing', () => {
     response: { data: { message } },
   });
 
+  afterEach(() => jest.restoreAllMocks());
+
   beforeEach(() => {
+    jest.spyOn(Math, 'random').mockReturnValue(0);
     accounts = ['a', 'b', 'c'].map((id) => ({ id, token: 'test', status: 1 }));
     prisma = {
       account: {
@@ -40,11 +43,16 @@ describe('WeRead account balancing', () => {
       .rejected;
   });
 
-  it('rotates evenly for sequential and concurrent callers', async () => {
-    expect((await choose()).id).toBe('a');
+  it('randomly selects each eligible account and allows consecutive repeats', async () => {
+    const random = Math.random as jest.Mock;
+    random
+      .mockReturnValueOnce(0.99)
+      .mockReturnValueOnce(0.99)
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.5);
     expect(
-      (await Promise.all(Array.from({ length: 8 }, choose))).map((a) => a.id),
-    ).toEqual(['b', 'c', 'a', 'b', 'c', 'a', 'b', 'c']);
+      (await Promise.all(Array.from({ length: 4 }, choose))).map((a) => a.id),
+    ).toEqual(['c', 'c', 'a', 'b']);
   });
 
   it('includes accounts beyond the former ten account limit', async () => {
@@ -53,18 +61,21 @@ describe('WeRead account balancing', () => {
       token: 'test',
       status: 1,
     }));
-    expect(
-      new Set((await Promise.all(accounts.map(choose))).map((a) => a.id)).size,
-    ).toBe(12);
+    (Math.random as jest.Mock).mockReturnValue(0.999);
+    expect((await choose()).id).toBe('11');
     expect(prisma.account.findMany.mock.calls[0][0].take).toBeUndefined();
   });
 
   it('handles disabling, deletion, and newly enabled accounts', async () => {
     expect((await choose()).id).toBe('a');
     accounts[1].status = 2;
+    (Math.random as jest.Mock).mockReturnValue(0.999);
     expect((await choose()).id).toBe('c');
     accounts = accounts.filter((a) => a.id !== 'c');
     accounts[1].status = 1;
+    (Math.random as jest.Mock)
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.999);
     expect((await choose()).id).toBe('a');
     expect((await choose()).id).toBe('b');
   });
@@ -121,7 +132,11 @@ describe('WeRead account balancing', () => {
     expect((await pending).id).toBe('b');
   });
 
-  it('uses the same rotation for article and MP info requests and retries failed reads', async () => {
+  it('randomly selects for article reads, retries, and MP info requests', async () => {
+    (Math.random as jest.Mock)
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0.99);
     const ids: string[] = [];
     jest
       .spyOn(service.request, 'get')

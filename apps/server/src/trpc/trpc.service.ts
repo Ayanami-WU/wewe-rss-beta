@@ -28,7 +28,6 @@ export class TrpcService {
   request: AxiosInstance;
   updateDelayTime = 60;
   private readonly blockedAccountsMap = new Map<string, string[]>();
-  private lastAccountId: string | undefined;
 
   private readonly logger = new Logger(this.constructor.name);
 
@@ -113,7 +112,6 @@ export class TrpcService {
           id: { in: disabledAccounts },
         },
       },
-      orderBy: { id: 'asc' },
     });
 
     const blockedIds = new Set(this.getBlockedAccountIds());
@@ -122,13 +120,7 @@ export class TrpcService {
       throw new Error('暂无可用读书账号!');
     }
 
-    // Advance synchronously after the database read, including concurrent callers.
-    const next =
-      available.find(
-        ({ id }) => this.lastAccountId === undefined || id > this.lastAccountId,
-      ) || available[0];
-    this.lastAccountId = next.id;
-    return next;
+    return available[Math.floor(Math.random() * available.length)];
   }
 
   async getMpArticles(mpId: string, page = 1, retryCount = 3) {
