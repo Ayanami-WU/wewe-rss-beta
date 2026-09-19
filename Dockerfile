@@ -1,70 +1,36 @@
-FROM node:20.16.0-alpine AS base
+FROM node:20.16.0-alpine AS build
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 ARG NPM_REGISTRY=https://registry.npmjs.org
 ENV NPM_CONFIG_REGISTRY="${NPM_REGISTRY}"
-
-# The repository uses lockfile v6, which is compatible with pnpm 8.
-# Do not install the moving latest release: pnpm 11 requires newer Node
-# built-ins than the Node 20 base image provides.
-RUN npm i -g pnpm@8.15.9 --registry="${NPM_REGISTRY}"
-
-FROM base AS build
-COPY . /usr/src/app
+RUN npm install -g pnpm@8.15.9 --registry="${NPM_REGISTRY}"
 WORKDIR /usr/src/app
-
+COPY . .
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
-
-# Production runs as a headless backend. The apps/web source remains in the
-# repository for upstream sync and recovery, but its Dashboard is not shipped.
+RUN pnpm --filter server exec jest --runInBand trpc.service.spec.ts
 RUN pnpm --filter server build
-
-RUN pnpm deploy --filter=server --prod /app
-RUN pnpm deploy --filter=server --prod /app-sqlite
-
+RUN pnpm deploy --filter=server --prod /app && pnpm deploy --filter=server --prod /app-sqlite
 RUN cd /app && pnpm exec prisma generate
+RUN cd /app-sqlite && rm -rf prisma && mv prisma-sqlite prisma && pnpm exec prisma generate
+# Keep only application runtime files, production dependencies and migrations.
+RUN for dir in /app /app-sqlite; do \
+      rm -rf "$dir/src" "$dir/test" "$dir/prisma-sqlite"; \
+      find "$dir/dist" -type f \( -name '*.map' -o -name '*.ts' \) -delete; \
+      find "$dir" -maxdepth 1 -type f ! -name package.json ! -name docker-bootstrap.sh -delete; \
+      chmod +x "$dir/docker-bootstrap.sh"; \
+    done
 
-RUN cd /app-sqlite && \
-    rm -rf ./prisma && \
-    mv prisma-sqlite prisma && \
-    pnpm exec prisma generate
+FROM node:20.16.0-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production HOST=0.0.0.0 DASHBOARD_ENABLED=false
+ENV SERVER_ORIGIN_URL="" MAX_REQUEST_PER_MINUTE=60 AUTH_CODE=""
+EXPOSE 4000
+CMD ["./docker-bootstrap.sh"]
 
-FROM base AS app-sqlite
+FROM runtime AS app-sqlite
+ENV DATABASE_URL="file:../data/wewe-rss.db" DATABASE_TYPE=sqlite
 COPY --from=build /app-sqlite /app
 
-WORKDIR /app
-
-EXPOSE 4000
-
-ENV NODE_ENV=production
-ENV HOST="0.0.0.0"
-ENV DASHBOARD_ENABLED="false"
-ENV SERVER_ORIGIN_URL=""
-ENV MAX_REQUEST_PER_MINUTE=60
-ENV AUTH_CODE=""
-ENV DATABASE_URL="file:../data/wewe-rss.db"
-ENV DATABASE_TYPE="sqlite"
-
-RUN chmod +x ./docker-bootstrap.sh
-
-CMD ["./docker-bootstrap.sh"]
-
-
-FROM base AS app
+FROM runtime AS app
+ENV DATABASE_URL="" DATABASE_TYPE=mysql
 COPY --from=build /app /app
-
-WORKDIR /app
-
-EXPOSE 4000
-
-ENV NODE_ENV=production
-ENV HOST="0.0.0.0"
-ENV DASHBOARD_ENABLED="false"
-ENV SERVER_ORIGIN_URL=""
-ENV MAX_REQUEST_PER_MINUTE=60
-ENV AUTH_CODE=""
-ENV DATABASE_URL=""
-
-RUN chmod +x ./docker-bootstrap.sh
-
-CMD ["./docker-bootstrap.sh"]

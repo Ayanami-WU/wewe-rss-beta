@@ -1,3 +1,5 @@
+name: wewe-rss-beta
+
 services:
   db:
     image: mysql:8.3.0
@@ -22,13 +24,28 @@ services:
       retries: 12
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: app
-      args:
-        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
-    image: wewe-rss-beta:local
+    image: ${WEWE_RSS_IMAGE:?Set WEWE_RSS_IMAGE to an immutable GHCR image digest}
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.5
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
     restart: unless-stopped
     depends_on:
       db:
@@ -44,7 +61,8 @@ services:
       AUTH_CODE: ${AUTH_CODE:?AUTH_CODE is required}
       SERVER_ORIGIN_URL: ${SERVER_ORIGIN_URL:-https://rss.tuotuzju.com}
       PLATFORM_URL: ${PLATFORM_URL:-https://weread.111965.xyz}
-      FEED_MODE: ${FEED_MODE:-fulltext}
+      FEED_MODE: ${FEED_MODE:-metadata}
+      NODE_OPTIONS: --max-old-space-size=320
       MAX_REQUEST_PER_MINUTE: ${MAX_REQUEST_PER_MINUTE:-60}
       CRON_EXPRESSION: ${CRON_EXPRESSION:-35 5,17 * * *}
       UPDATE_DELAY_TIME: ${UPDATE_DELAY_TIME:-60}
@@ -52,3 +70,5 @@ services:
 
 volumes:
   wewe-rss-beta-db:
+    external: true
+    name: wewe-rss-beta_wewe-rss-beta-db
