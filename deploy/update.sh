@@ -4,7 +4,7 @@ set -eu
 umask 077
 image=${1:?Usage: sh update.sh GHCR_DIGEST_OR_LOCAL_IMAGE_ID}
 case "$image" in
-  ghcr.io/*@sha256:*) digest=${image##*@sha256:}; local_image=false;;
+  ghcr.io/*@sha256:*|ghcr.nju.edu.cn/*@sha256:*) digest=${image##*@sha256:}; local_image=false;;
   sha256:*) digest=${image#sha256:}; local_image=true;;
   *) echo 'An immutable GHCR digest or loaded image ID is required' >&2; exit 1;;
 esac

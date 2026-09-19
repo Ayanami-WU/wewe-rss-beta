@@ -21,7 +21,7 @@ printf '#!/bin/sh\nexit 0\n' > "$work/bin/sleep"
 chmod +x "$work/bin/docker" "$work/bin/sleep"
 export PATH="$work/bin:$PATH"
 image=ghcr.io/example/rss@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-for scenario in success missing-old pull-fail unhealthy local; do
+for scenario in success missing-old pull-fail unhealthy mirror local; do
   mkdir "$work/$scenario"
   cd "$work/$scenario"
   printf 'AUTH_CODE=private-test-value\nWEWE_RSS_IMAGE=previous\n' > .env.production
@@ -29,13 +29,14 @@ for scenario in success missing-old pull-fail unhealthy local; do
   export MOCK_LOG="$work/$scenario/log"
   export MOCK_MISSING_OLD=0 MOCK_PULL_FAIL=0 MOCK_HEALTH=healthy
   case "$scenario" in
+    mirror) image=ghcr.nju.edu.cn/example/rss@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;;
     local) image=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;;
     missing-old) MOCK_MISSING_OLD=1;;
     pull-fail) MOCK_PULL_FAIL=1;;
     unhealthy) MOCK_HEALTH=unhealthy;;
   esac
   if sh "$root/deploy/update.sh" "$image" > output 2>&1; then
-    [ "$scenario" = success ] || [ "$scenario" = local ]
+    [ "$scenario" = success ] || [ "$scenario" = local ] || [ "$scenario" = mirror ]
     if [ "$scenario" = local ] && grep -q " pull app" "$MOCK_LOG"; then exit 1; fi
     grep -q "WEWE_RSS_IMAGE=$image" .env.production
     grep -q 'AUTH_CODE=private-test-value' .env.production

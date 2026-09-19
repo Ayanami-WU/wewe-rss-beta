@@ -50,3 +50,13 @@ sh update.sh "$(cat image-id.txt)"
 ```
 
 脚本在本地镜像 ID 模式下只使用已加载镜像，不重试 GHCR；备份、资源限制和回滚行为相同。
+
+## 南京大学 GHCR 镜像
+
+生产优先通过 `ghcr.nju.edu.cn` 拉取公开镜像，只替换 CI `image.env` 中的 `ghcr.io` 域名，保留仓库路径与完整 `@sha256:` 摘要。部署脚本支持两个域名，无需修改 Docker 全局配置，不能将 GHCR 登录凭据发送给镜像站。
+
+```sh
+sh update.sh ghcr.nju.edu.cn/ayanami-wu/wewe-rss-beta@sha256:真实摘要
+```
+
+官方说明：https://doc.nju.edu.cn/books/e1654/page/ghcr 。若镜像站无法获取同一摘要，停止更新或使用 CI 成品包，不回退到浮动标签。
