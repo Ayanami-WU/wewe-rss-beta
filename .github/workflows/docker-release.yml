@@ -60,6 +60,7 @@ jobs:
           '
           WEWE_RSS_IMAGE=rss-runtime:verify MYSQL_ROOT_PASSWORD=test MYSQL_PASSWORD=test AUTH_CODE=test docker compose -f docker-compose.production.yml config --quiet
           sh -n deploy/update.sh
+          sh deploy/update.test.sh
       - name: Publish immutable image
         if: github.event_name != 'pull_request'
         env:
