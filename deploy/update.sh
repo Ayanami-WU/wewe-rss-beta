@@ -2,9 +2,12 @@
 # Run in the deployment directory containing Compose and .env.production.
 set -eu
 umask 077
-image=${1:?Usage: sh update.sh ghcr.io/OWNER/IMAGE@sha256:DIGEST}
-case "$image" in ghcr.io/*@sha256:*) ;; *) echo 'An immutable GHCR digest is required' >&2; exit 1;; esac
-digest=${image##*@sha256:}
+image=${1:?Usage: sh update.sh GHCR_DIGEST_OR_LOCAL_IMAGE_ID}
+case "$image" in
+  ghcr.io/*@sha256:*) digest=${image##*@sha256:}; local_image=false;;
+  sha256:*) digest=${image#sha256:}; local_image=true;;
+  *) echo 'An immutable GHCR digest or loaded image ID is required' >&2; exit 1;;
+esac
 [ ${#digest} -eq 64 ] || exit 1
 case "$digest" in *[!0-9a-f]*) exit 1;; esac
 export WEWE_RSS_IMAGE="$image"
@@ -16,7 +19,11 @@ db=$(compose ps -q db)
 old_image=$(docker inspect "$container" --format '{{.Image}}')
 docker image inspect "$old_image" >/dev/null || { echo 'Restore a rollback image before updating' >&2; exit 1; }
 # No source tree, build command, package installation, or database recreation.
-compose pull app
+if [ "$local_image" = true ]; then
+  docker image inspect "$image" >/dev/null
+else
+  compose pull app
+fi
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 backup_dir="backups/$stamp"
 mkdir -p "$backup_dir"

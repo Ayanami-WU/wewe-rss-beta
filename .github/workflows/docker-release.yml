@@ -75,6 +75,9 @@ jobs:
           printf 'WEWE_RSS_IMAGE=%s\n' "$digest" > release/image.env
           cp docker-compose.production.yml release/
           cp deploy/update.sh release/
+          docker inspect rss-runtime:verify --format '{{.Id}}' > release/image-id.txt
+          docker save rss-runtime:verify | gzip -1 > release/rss-runtime.tar.gz
+          (cd release && sha256sum rss-runtime.tar.gz > rss-runtime.tar.gz.sha256)
           printf 'Image: `%s`\n' "$digest" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'pull_request'

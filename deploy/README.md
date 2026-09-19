@@ -38,3 +38,15 @@ docker compose -p wewe-rss-beta --env-file .env.production -f docker-compose.pro
 ```
 
 不执行 `down -v`、镜像清理或数据库重建。数据库恢复必须单独核对备份并确认，不因应用失败自动覆盖数据。
+
+## GHCR 网络受阻时
+
+CI artifact 同时提供 `rss-runtime.tar.gz`、SHA-256 校验文件和 `image-id.txt`。可在开发机下载完整 artifact，再通过 SSH 上传部署目录，无需向生产传输源码或凭据。校验和不通过时停止；加载后按不可变镜像 ID 运行同一个部署脚本：
+
+```sh
+sha256sum -c rss-runtime.tar.gz.sha256
+docker load -i rss-runtime.tar.gz
+sh update.sh "$(cat image-id.txt)"
+```
+
+脚本在本地镜像 ID 模式下只使用已加载镜像，不重试 GHCR；备份、资源限制和回滚行为相同。
